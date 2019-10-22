@@ -1,4 +1,4 @@
-package au.gov.nla.heritrixclient;
+package au.gov.nla.heritrixctl;
 
 import java.io.Closeable;
 import java.net.ConnectException;

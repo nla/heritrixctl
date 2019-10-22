@@ -1,4 +1,4 @@
-package au.gov.nla.heritrixclient;
+package au.gov.nla.heritrixctl;
 
 public class UriTotalsReport {
     private long downloadedUriCount;

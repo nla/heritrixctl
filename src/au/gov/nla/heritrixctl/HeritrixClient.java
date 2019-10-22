@@ -1,14 +1,11 @@
-package au.gov.nla.heritrixclient;
+package au.gov.nla.heritrixctl;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 
 import javax.net.ssl.*;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -27,6 +24,7 @@ public class HeritrixClient {
     private final AtomicReference<DigestChallenge> lastChallenge = new AtomicReference<>();
     private final String username;
     private final String password;
+    boolean debug = false;
 
     public HeritrixClient(String url, String username, String password) {
         if (!url.endsWith("/")) {
@@ -62,7 +60,7 @@ public class HeritrixClient {
         }
     }
 
-    private <T> T sendRequest(String method, URI uri, String[] keysAndValues, ObjectReader objectReader) {
+    InputStream openStream(String method, URI uri, String requestType, InputStream requestBody) {
         try {
             DigestChallenge challenge = lastChallenge.get();
             for (int tries = 0; tries < 3; tries++) {
@@ -74,30 +72,35 @@ public class HeritrixClient {
                 }
                 connection.setInstanceFollowRedirects(false); // automatic redirect handling won't preserve auth header
                 connection.setRequestMethod(method);
-                connection.setRequestProperty("User-Agent", "pandas-gatherer");
+                connection.setRequestProperty("User-Agent", "heritrix-client");
                 connection.setRequestProperty("Accept", "application/xml");
                 if (challenge != null) {
                     connection.setRequestProperty("Authorization", challenge.authorize(username, password, method, uri.getPath()));
                 }
 
-                if (keysAndValues != null) {
+                if (requestBody != null) {
                     connection.setDoOutput(true);
-                    connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                    try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(connection.getOutputStream(), UTF_8))) {
-                        for (int i = 0; i < keysAndValues.length; i += 2) {
-                            if (i != 0) out.append('&');
-                            out.append(URLEncoder.encode(keysAndValues[i], "utf-8"));
-                            out.append('=');
-                            out.append(URLEncoder.encode(keysAndValues[i + 1], "utf-8"));
+                    if (requestType != null) {
+                        connection.setRequestProperty("Content-Type", requestType);
+                    }
+                    try (OutputStream out = connection.getOutputStream()) {
+                        byte[] buf = new byte[4096];
+                        while (true) {
+                            int n = requestBody.read(buf);
+                            if (n < 0) break;
+                            out.write(buf, 0, n);
                         }
                     }
                 }
-                try (InputStream body = connection.getInputStream()) {
+
+                try {
+                    InputStream body = connection.getInputStream();
                     if (connection.getResponseCode() == 303) {
+                        body.close();
                         URI location = uri.resolve(connection.getHeaderField("Location"));
-                        return sendRequest("GET", location, null, objectReader);
+                        return openStream("GET", location, null, null);
                     }
-                    return objectReader.readValue(body);
+                    return body;
                 } catch (IOException e) {
                     String authenticate = connection.getHeaderField("WWW-Authenticate");
                     if (connection.getResponseCode() == 401 && authenticate != null && authenticate.startsWith("Digest ")) {
@@ -112,6 +115,37 @@ public class HeritrixClient {
             throw new HeritrixException(e);
         }
         throw new HeritrixException("Authentication failed: " + method + " " + uri);
+    }
+
+    InputStream openStream(URI uri) {
+        return openStream("GET", uri, null, null);
+    }
+
+    private <T> T sendRequest(String method, URI uri, String[] keysAndValues, ObjectReader objectReader) {
+        String requestType = null;
+        InputStream requestBody = null;
+        if (keysAndValues != null) {
+            requestType = "application/x-www-form-urlencoded";
+            StringBuilder out = new StringBuilder();
+            try {
+                for (int i = 0; i < keysAndValues.length; i += 2) {
+                    if (i != 0) out.append('&');
+                    out.append(URLEncoder.encode(keysAndValues[i], "utf-8"));
+                    out.append('=');
+                    out.append(URLEncoder.encode(keysAndValues[i + 1], "utf-8"));
+                }
+            } catch (UnsupportedEncodingException e) {
+                throw new HeritrixException(e);
+            }
+            requestBody = new ByteArrayInputStream(out.toString().getBytes(UTF_8));
+        }
+
+        try (InputStream body = openStream(method, uri, requestType, requestBody)) {
+            InputStream debugBody = debug ? new DebugInputStream(body) : body;
+            return objectReader.readValue(debugBody);
+        } catch (IOException e) {
+            throw new HeritrixException(e);
+        }
     }
 
     <T> T POST(URI uri, Object objectToUpdate, String... keysAndValues) {

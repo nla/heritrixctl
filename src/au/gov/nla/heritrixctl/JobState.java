@@ -1,5 +1,5 @@
-package au.gov.nla.heritrixclient;
+package au.gov.nla.heritrixctl;
 
-public enum State {
+public enum JobState {
     NASCENT, RUNNING, EMPTY, PAUSED, PAUSING, STOPPING, FINISHED, PREPARING
 }

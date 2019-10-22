@@ -1,6 +1,7 @@
-# heritrix-client
+# heritrixctl
 
-Java client for the [Heritrix REST API](https://heritrix.readthedocs.io/en/latest/api.html).
+Java library for running and controlling [Heritrix](https://github.com/internetarchive/heritrix3) via the
+[REST API](https://heritrix.readthedocs.io/en/latest/api.html).
 
 ## Basic Usage
 

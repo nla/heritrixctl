@@ -1,4 +1,4 @@
-package au.gov.nla.heritrixclient;
+package au.gov.nla.heritrixctl;
 
 import java.net.URI;
 
@@ -16,5 +16,10 @@ public class Engine extends HeritrixResource {
     public String getHeritrixVersion() {
         populate();
         return heritrixVersion;
+    }
+
+    public Job createJob(String name) {
+        client.POST(uri, this, "action", "create", "createpath", name);
+        return new Job(client, uri.resolve("job/" + name));
     }
 }

@@ -1,4 +1,4 @@
-package au.gov.nla.heritrixclient;
+package au.gov.nla.heritrixctl;
 
 import java.net.URI;
 
@@ -18,7 +18,7 @@ class HeritrixResource {
         }
     }
 
-    private void refresh() {
+    public void refresh() {
         client.GET(uri, this);
         populated = true;
     }

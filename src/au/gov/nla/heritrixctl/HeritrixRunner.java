@@ -1,4 +1,4 @@
-package au.gov.nla.heritrixclient;
+package au.gov.nla.heritrixctl;
 
 import java.io.IOException;
 import java.net.URL;
