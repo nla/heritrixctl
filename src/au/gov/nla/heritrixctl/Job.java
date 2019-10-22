@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.EnumSet;
 
 public class Job extends HeritrixResource {
     private String shortName;
@@ -92,16 +93,16 @@ public class Job extends HeritrixResource {
         return url;
     }
 
-    public void waitForState(JobState target) {
+    public void waitForState(EnumSet<JobState> target, EnumSet<JobState> allowed, long millis) {
         JobState initial = getState();
-        long deadline = System.nanoTime() + 60000000000L;
+        long deadline = System.nanoTime() + millis * 1000000;
         while (true) {
             JobState state = getState();
-            if (state == target) break;
-            if (state != initial) throw new IllegalStateException("Expected crawl state " + target + " but got " + state);
-            if (System.nanoTime() >= deadline) throw new HeritrixException("Timed out waiting for state " + state);
+            if (target.contains(state)) break;
+            if (state != initial && !allowed.contains(state)) throw new IllegalStateException("Expected crawl state " + target + " but got " + state);
+            if (millis > 0 && System.nanoTime() >= deadline) throw new HeritrixException("Timed out waiting for state " + state);
             try {
-                Thread.sleep(100);
+                Thread.sleep(250);
             } catch (InterruptedException e) {
                 return;
             }
