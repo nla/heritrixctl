@@ -56,7 +56,11 @@ public class HeritrixCTL {
             if (System.getenv("HERITRIX_URL") != null) {
                 client = new HeritrixClient(System.getenv("HERITRIX_URL"), System.getenv("HERITRIX_USER"), System.getenv("HERITRIX_PASSWORD"));
             } else if (System.getenv("HERITRIX_HOME") != null) {
-                HeritrixProcess process = HeritrixRunner.downloadLatestSnapshot(Paths.get(System.getenv("HERITRIX_HOME"))).start();
+                HeritrixRunner runner = HeritrixRunner.downloadLatestSnapshot(Paths.get(System.getenv("HERITRIX_HOME")));
+                if (System.getenv("HERITRIX_PORT") != null) {
+                    runner.setWebPort(Integer.parseInt(System.getenv("HERITRIX_PORT")));
+                }
+                HeritrixProcess process = runner.start();
                 Runtime.getRuntime().addShutdownHook(new Thread(process::close));
                 client = process.waitForStartup().getClient();
             } else {
